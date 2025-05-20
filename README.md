@@ -3,12 +3,12 @@
   Dynamic Prediction of Reynolds-averaged Flow Field past Airfoil at varying Angle of Attack via Physical-guided Video Diffusion Model</a>
 </h2>
 <h5 align="center"> 
-Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, Lei Ma✉ 
-* Equal contributions
-✉ Corresponding authors
+Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, Lei Ma✉
  </h5>
 <h5 align="center"> 
-If you like our project, please give us a star ⭐ on GitHub.  </h5>
+* Equal contributions
+✉ Corresponding authors 
+</h5>
 <!-- <h5 align="center">
 
 <!-- [![arXiv](https://img.shields.io/badge/Arxiv-2411.10504-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2411.10504)
