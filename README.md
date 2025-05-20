@@ -13,7 +13,7 @@ If you like our project, please give us a star ⭐ on GitHub.  </h5>
 </h5> -->
 
 <p align="center">
-  <img src="assets/pipeline.png" width="800"/>
+  <img src="asset/pipeline.png" width="800"/>
 </p>
 
 
