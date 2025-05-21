@@ -10,9 +10,9 @@ def main():
 
     ### User input ###
     # define run name, if run name already exists and is not 'pretrained', load_model_step must be provided
-    run_name ="fluid_new_npy_new_wo2812_adjust_v3" #'pretrained'
+    run_name ="your_name" #'pretrained'
 
-    if run_name == 'fluid_new_npy_new_wo2812_adjust_v3':
+    if run_name == 'pretrained':
         load_model_step = 100000  # pretrained model was trained for 200k steps
     else:
         load_model_step = None  # train new model (or change this in case you want to load your own pretrained model)
@@ -33,11 +33,7 @@ def main():
 
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '4648'
-    # print(os.environ['WORLD_SIZE'])
-    # print(aaaaa)
     dist.init_process_group(backend='gloo',init_method='env://',rank=0,world_size=int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1)
-    # dist.init_process_group(backend='nccl',init_method=None,rank=-1,world_size=-1)
-    # print(aaaaa)
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     
     ip_kwargs = InitProcessGroupKwargs(timeout=datetime.timedelta(seconds=60*10))  # required to prevent timeout error when nonequal distribution of samplings to GPUs
@@ -59,7 +55,7 @@ def main():
         config = yaml.safe_load(Path(run_dir + 'model/model.yaml').read_text())
     else:
         # extract model parameters from created yaml
-        config = yaml.safe_load(Path('model_our.yaml').read_text())
+        config = yaml.safe_load(Path('model.yaml').read_text())
         print(f"Process {accelerator.state.local_process_index}: Waiting for everyone to reach this point.")
         # print(aaaaa)
         # if accelerator.is_main_process:
