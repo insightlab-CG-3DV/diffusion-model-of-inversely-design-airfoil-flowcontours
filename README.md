@@ -45,11 +45,11 @@ Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, L
 
 
 ## 🗓️ TODO
-- [x] Release the synthetic/real-world dataset.
 - [x] Release the training code.
-- [x] Release the scripts for processing synthetic dataset.
+- [x] Release the dataset.
+- [x] Release the pretrained model.
+- [ ] Release the data generation code.
 - [ ] Release the project page.
-- [ ] Multi-GPU training script & depth sequence render.
 
 
 ## 🕶 Get Started
@@ -66,7 +66,7 @@ conda env create -f environment.yml
 ```
 
 ### 2. Dataset Preparation
-Moreover, well-organized synthetic and real-world datasets can be found in the [download link](https://huggingface.co/datasets/diff-flow/diff-flow).
+Well-organized datasets can be found in the [download link](https://huggingface.co/datasets/diff-flow/diff-flow).
 
 Overall, the structure of our project is formulated as:
 ```
@@ -81,7 +81,19 @@ Overall, the structure of our project is formulated as:
 └── main.py
 ``` 
 
-For a comprehensive guide on synthesizing the entire synthetic dataset from scratch, as well as the pose estimation method, please refer to the [Dataset](scripts/Dataset.md) file. 
+### 3. Pretrained Model
+Pretrained model can be found in the [download link](https://huggingface.co/diff-flow/diff-flow).
+Pretrained model should be formulated as:
+```
+<project root>
+├── runs
+│   └──Pretrained
+|         └──model
+|             └──step_100000
+|                     └──checkpoint.pt
+└── main.py
+``` 
+<!-- For a comprehensive guide on synthesizing the entire synthetic dataset from scratch, as well as the pose estimation method, please refer to the [Dataset](scripts/Dataset.md) file.  -->
 
 ### 3. Training
 * For training on the spike-deblur-nerf scene `wine`, run:
