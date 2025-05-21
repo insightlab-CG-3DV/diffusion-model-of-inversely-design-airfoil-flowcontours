@@ -113,10 +113,5 @@ Our code is implemented based on the [Inverse design of nonlinear mechanical met
 ## 🤝 Citation
 If you find our work useful in your research, please cite:
 ```
-<!-- @article{chen2024usp,
-  title={USP-Gaussian: Unifying Spike-based Image Reconstruction, Pose Correction and Gaussian Splatting},
-  author={Chen, Kang and Zhang, Jiyuan and Hao, Zecheng and Zheng, Yajing and Huang, Tiejun and Yu, Zhaofei},
-  journal={arXiv preprint arXiv:2411.10504},
-  year={2024}
-} -->
+
 ```
