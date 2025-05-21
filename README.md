@@ -62,28 +62,26 @@ conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 ```
 ## install dependencies
 ```
-conda env create -f freeze.yml
+conda env create -f environment.yml
 ```
 
 ### 2. Dataset Preparation
-Moreover, well-organized synthetic and real-world datasets can be found in the [download link](https://pan.baidu.com/s/11DrLjok7i7Bb-E3ETkHSCA?pwd=1623).
+Moreover, well-organized synthetic and real-world datasets can be found in the [download link](https://huggingface.co/datasets/diff-flow/diff-flow).
 
 Overall, the structure of our project is formulated as:
 ```
 <project root>
-├── bad_gaussians
 ├── data
-│   ├── real_world
-│   └── synthetic
-├── imgs
-├── train.py
-└── render.py
+│   ├── fluid
+|   |     ├──p_npy
+|   |     ├──u_npy
+|   |     ├──v_npy
+|   |     └──Token.csv
+│   └── target_response.csv
+└── main.py
 ``` 
 
-For a comprehensive guide on synthesizing the entire synthetic dataset from scratch, as well as the pose estimation method, please refer to the [Dataset](scripts/Dataset.md) file. Besides, for the dataset input explanation, please check https://github.com/chenkang455/USP-Gaussian/issues/2#issuecomment-2513610500.
-
-
-> In this project, there is no need to use the `blur_data`. The inclusion of the `blur_data` folder is just for the convenience of visualizing the input data. The sharp_data contains the provided ground truth images, which are used to calculate the image restoration and 3D restoration metrics such as PSNR, SSIM, and LPIPS. In real-world datasets, since we cannot capture the corresponding sharp images, you can place the tfp reconstructed images in sharp_data to make the code run. However, the calculation results of the metrics will not be accurate.
+For a comprehensive guide on synthesizing the entire synthetic dataset from scratch, as well as the pose estimation method, please refer to the [Dataset](scripts/Dataset.md) file. 
 
 ### 3. Training
 * For training on the spike-deblur-nerf scene `wine`, run:
