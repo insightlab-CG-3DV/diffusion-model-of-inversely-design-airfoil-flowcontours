@@ -96,42 +96,27 @@ Pretrained model should be formulated as:
 <!-- For a comprehensive guide on synthesizing the entire synthetic dataset from scratch, as well as the pose estimation method, please refer to the [Dataset](scripts/Dataset.md) file.  -->
 
 ### 3. Training
-* For training on the spike-deblur-nerf scene `wine`, run:
 ```
-CUDA_VISIBLE_DEVICES=0 python train.py --seed_set 425 --net_lr 1e-3  \
---use_3dgs --use_spike --use_flip  --use_multi_net --use_multi_reblur \
---data_name wine --exp_name joint_optimization --data_path data/synthetic/wine
+accelerate launch main_our_npy.py --name <you_name> --mode train
 ```
 
-* For training on the real-world scene `sheep`, run:
-```
-CUDA_VISIBLE_DEVICES=0 python train.py --seed_set 425 --net_lr 1e-3  \
---use_3dgs --use_spike --use_flip  --use_multi_net --use_multi_reblur --use_real \
---data_name sheep --exp_name joint_optimization --data_path data/real_world/sheep
-```
 
 ### 4. Rendering
 For rendering 3D scene from the input camera trajectory, run:
 ```
-CUDA_VISIBLE_DEVICES=0 python render.py interpolate \
-  --load-config outputs/sheep/bad-gaussians/<exp_date_time>/config.yml \
-  --pose-source train \
-  --frame-rate 30 \
-  --output-format video \
-  --interpolation-steps 5 \
-  --output-path renders/sheep.mp4
+accelerate launch main_our_npy.py --name pretrained --mode eval
 ```
 
 ## 🙇‍ Acknowledgment
-Our code is implemented based on the [BAD-Gaussian](https://github.com/WU-CVGL/BAD-Gaussians) and thanks for Lingzhe Zhao for his detailed help. Spike-to-image algorithms is implemented based on the [Spike-Zoo](https://github.com/chenkang455/Spike-Zoo?tab=readme-ov-file).
+Our code is implemented based on the [Inverse design of nonlinear mechanical metamaterials via video denoising diffusion models](https://www.nature.com/articles/s42256-023-00762-x) by [Phil Wang](https://github.com/jhbastek/VideoMetamaterials) and the video denoising diffusion implementation by [Phil Wang](https://github.com/lucidrains/imagen-pytorch) proposed in [Imagen Video](https://imagen.research.google/video/).
 
 ## 🤝 Citation
 If you find our work useful in your research, please cite:
 ```
-@article{chen2024usp,
+<!-- @article{chen2024usp,
   title={USP-Gaussian: Unifying Spike-based Image Reconstruction, Pose Correction and Gaussian Splatting},
   author={Chen, Kang and Zhang, Jiyuan and Hao, Zecheng and Zheng, Yajing and Huang, Tiejun and Yu, Zhaofei},
   journal={arXiv preprint arXiv:2411.10504},
   year={2024}
-}
+} -->
 ```

@@ -57,14 +57,8 @@ def main():
         # extract model parameters from created yaml
         config = yaml.safe_load(Path('model.yaml').read_text())
         print(f"Process {accelerator.state.local_process_index}: Waiting for everyone to reach this point.")
-        # print(aaaaa)
-        # if accelerator.is_main_process:
-        #     time.sleep(2)
-        # else:
-        #     print("I'm waiting for the main process to finish its sleep...")
         accelerator.wait_for_everyone()
         print(f"Process {accelerator.state.local_process_index}: reach this point.")
-        # print(aaaaa)
         # save model parameters in run_dir    
         if accelerator.is_main_process:
             # create folder for all saved files
@@ -93,7 +87,6 @@ def main():
         padding_mode = config['padding_mode'],
     )
     print(len(config['selected_channels']))
-    # print(aaaaaaaaa)
     diffusion = GaussianDiffusion(
         model,
         image_size = 96,
@@ -133,4 +126,9 @@ def main():
     trainer.eval_test(target_labels_dir, guidance_scale=guidance_scale, num_preds=num_preds)
 
 if __name__ == '__main__':
+    parser = ArgumentParser(description="Testing script parameters")
+    parser.add_argument("--iteration", default=-1, type=int)
+    parser.add_argument("--skip_train", action="store_true")
+    parser.add_argument("--skip_test", action="store_true")
+    parser.add_argument("--quiet", action="store_true")
     main()
