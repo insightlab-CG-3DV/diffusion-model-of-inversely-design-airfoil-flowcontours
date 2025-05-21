@@ -54,21 +54,14 @@ Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, L
 
 ## 🕶 Get Started
 ### 1. Installation
-Our environment keeps the same with the [BAD-Gaussian](https://github.com/WU-CVGL/BAD-Gaussians) building on the `nerfstudio`. For installation, you can run the following command:
-```
-# (Optional) create a fresh conda env
-conda create --name nerfstudio -y "python<3.11"
-conda activate nerfstudio
-
-# install dependencies
+# install torch
 pip install --upgrade pip setuptools
 pip install "torch==2.1.2+cu118" "torchvision==0.16.2+cu118" --extra-index-url https://download.pytorch.org/whl/cu118
 
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
-pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 
-# install nerfstudio!
-pip install nerfstudio==1.0.3
+# install dependencies
+conda env create -f freeze.yml
 ```
 
 ### 2. Dataset Preparation
