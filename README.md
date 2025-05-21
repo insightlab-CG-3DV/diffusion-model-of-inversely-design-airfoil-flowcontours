@@ -108,7 +108,7 @@ accelerate launch main_our_npy.py --name pretrained --mode eval
 ```
 
 ## 🙇‍ Acknowledgment
-Our code is implemented based on the [Inverse design of nonlinear mechanical metamaterials via video denoising diffusion models](https://www.nature.com/articles/s42256-023-00762-x) by [Phil Wang](https://github.com/jhbastek/VideoMetamaterials) and the video denoising diffusion implementation by [Phil Wang](https://github.com/lucidrains/imagen-pytorch) proposed in [Imagen Video](https://imagen.research.google/video/).
+Our code is implemented based on the [Inverse design of nonlinear mechanical metamaterials via video denoising diffusion models](https://www.nature.com/articles/s42256-023-00762-x) by [Jan-Hendrik Bastek](https://github.com/jhbastek/VideoMetamaterials) and the video denoising diffusion implementation by [Phil Wang](https://github.com/lucidrains/imagen-pytorch) proposed in [Imagen Video](https://imagen.research.google/video/).
 
 ## 🤝 Citation
 If you find our work useful in your research, please cite:
