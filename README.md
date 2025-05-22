@@ -89,6 +89,7 @@ Pretrained model should be formulated as:
 ├── runs
 │   └──Pretrained
 |         └──model
+|             ├──model.yaml
 |             └──step_100000
 |                     └──checkpoint.pt
 └── main.py
