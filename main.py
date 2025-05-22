@@ -3,20 +3,20 @@ import datetime
 from pathlib import Path
 from torch import distributed as dist
 from accelerate import Accelerator, DistributedDataParallelKwargs, InitProcessGroupKwargs
-from denoising_diffusion_our_npy import Unet3D, GaussianDiffusion, Trainer
+from denoising_diffusion import Unet3D, GaussianDiffusion, Trainer
 from src.utils import *
 import time
-def main():
+from argparse import ArgumentParser
+def main(name,mode):
 
     ### User input ###
     # define run name, if run name already exists and is not 'pretrained', load_model_step must be provided
-    run_name ="your_name" #'pretrained'
+    run_name =name #'pretrained'
 
-    if run_name == 'pretrained':
+    if mode=="eval":
         load_model_step = 100000  # pretrained model was trained for 200k steps
     else:
-        load_model_step = None  # train new model (or change this in case you want to load your own pretrained model)
-    
+        load_model_step = None 
     # number of predictions to generate for each conditioning
     num_preds = 1
 
@@ -52,6 +52,7 @@ def main():
             accelerator.print('Directory already exists, please change run_name to train new model or provide load_model_step')
             return
         # extract model parameters from given yaml
+        print("loading:",run_dir)
         config = yaml.safe_load(Path(run_dir + 'model/model.yaml').read_text())
     else:
         # extract model parameters from created yaml
@@ -86,7 +87,7 @@ def main():
         per_frame_cond = config['per_frame_cond'],
         padding_mode = config['padding_mode'],
     )
-    print(len(config['selected_channels']))
+    # print(len(config['selected_channels']))
     diffusion = GaussianDiffusion(
         model,
         image_size = 96,
@@ -98,7 +99,7 @@ def main():
         sampling_timesteps = config['sampling_timesteps'],
     )
     config['reference_frame']
-    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/wingscut/'
+    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/'
     data_dir_validation = cur_dir + 'data/' + config['reference_frame'] + '/validation/'
 
     trainer = Trainer(
@@ -119,16 +120,19 @@ def main():
         reference_frame = config['reference_frame'],
         run_name = run_name,
         accelerator = accelerator,
-        wandb_username = wandb_username
+        wandb_username = wandb_username,
+        mode=mode
     )
 
     trainer.train(load_model_step=load_model_step, num_samples=3, num_preds=num_preds)
+
     trainer.eval_test(target_labels_dir, guidance_scale=guidance_scale, num_preds=num_preds)
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Testing script parameters")
-    parser.add_argument("--iteration", default=-1, type=int)
-    parser.add_argument("--skip_train", action="store_true")
-    parser.add_argument("--skip_test", action="store_true")
-    parser.add_argument("--quiet", action="store_true")
-    main()
+    # model = ModelParams(parser, sentinel=True)
+    # pipeline = PipelineParams(parser)
+    parser.add_argument("--name", default="pretrained", type=str)
+    parser.add_argument("--mode", default="train", type=str)
+    args = parser.parse_args()
+    main(args.name,args.mode)
