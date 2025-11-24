@@ -18,7 +18,7 @@ Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, L
 </h5> -->
 ## 👀 Overview
 <p align="center">
-  <img src="asset/pipeline.png" width="800"/>
+  <img src="asset/pipelinev2.png" width="800"/>
 </p>
 
 
