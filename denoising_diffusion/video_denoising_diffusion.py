@@ -16,13 +16,13 @@ from einops import rearrange, repeat
 
 from einops_exts import check_shape, rearrange_many
 from rotary_embedding_torch import RotaryEmbedding
-
+from pde import get_ns_bounded_loss
 import numpy as np
 from src.utils import *
 from src.normalization import Normalization
 
 from accelerate.utils import broadcast_object_list
-
+from pde import get_ns_bounded_loss,get_ns_bounded_loss_perframe
 # helpers functions
 
 def exists(x):
@@ -950,40 +950,117 @@ class GaussianDiffusion(nn.Module):
 
             # clip by threshold, depending on whether static or dynamic
             x_recon = x_recon.clamp(-s, s) / s
-
+        # x_recon_save=(x_recon+1.0)*0.5
+        # # printx_recon_save)
+        # print(t)
+        # if (t<10):
+        #     torchvision.utils.save_image(x_recon_save[0,0,0,:,:],"./x_recon2.png")
+        #     print(aaaaaaa)
+        # print(x_recon.shape)
+        # print(x_recon.min())
+        # print(x_recon.max())  
+        # print("------------------------------")          
         model_mean, posterior_variance, posterior_log_variance = self.q_posterior(x_start=x_recon, x_t=x, t=t)
         return model_mean, posterior_variance, posterior_log_variance
 
     @torch.inference_mode()
-    def p_sample(self, x, t, cond = None, clip_denoised = True, guidance_scale = 1.):
+    def p_sample_ini(self, x, t, cond = None, clip_denoised = True, guidance_scale = 1.):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(x = x, t = t, clip_denoised = clip_denoised, cond = cond, guidance_scale = guidance_scale)
         noise = torch.randn_like(x)
-        # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
+    
+    #@torch.inference_mode()
+    def p_sample(self, x, t, cond = None, clip_denoised = True, guidance_scale = 1.,is_infer=False,rate=0.1):
+        with torch.no_grad():
+            b, *_, device = *x.shape, x.device
+            model_mean, _, model_log_variance = self.p_mean_variance(x = x, t = t, clip_denoised = clip_denoised, cond = cond, guidance_scale = guidance_scale)
+            noise = torch.randn_like(x)
+                # no noise when t == 0
+            nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        x_recon = self.predict_start_from_noise(x, t=t, noise = self.denoise_fn.forward_with_guidance_scale(x, t, cond = cond, guidance_scale = guidance_scale))
+        print(x_recon.shape)
+        if((t<100) and is_infer):
+            x_cur = x.detach().clone()
+            # x_cur=x_cur[0,1:,:,:]
+            x_cur.requires_grad = True
+            with torch.no_grad():
+                noise2 = self.denoise_fn.forward_with_guidance_scale(x_cur, t, cond = cond, guidance_scale = guidance_scale)
+            # noise.requires_grad = True
+            x_recon = self.predict_start_from_noise(x_cur, t=t, noise = noise2)
+            # # x_recon.requires_grad=True
+            # print("x_recon",x_recon.requires_grad)
+            # print(aaaaa)
+            if clip_denoised:
+                s = 1.
+                if self.use_dynamic_thres:
+                    s = torch.quantile(
+                        rearrange(x_recon, 'b ... -> b (...)').abs(),
+                        self.dynamic_thres_percentile,
+                        dim = -1
+                    )
 
-    @torch.inference_mode()
-    def p_sample_loop(self, shape, cond = None, guidance_scale = 1.):
+                    s.clamp_(min = 1.)
+                    s = s.view(-1, *((1,) * (x_recon.ndim - 1)))
+
+                # clip by threshold, depending on whether static or dynamic
+                x_recon = x_recon.clamp(-s, s) / s
+                x_recon=(x_recon+1.0)*0.5
+            #x_recon.requires_grad=True
+            # print("x_recon2",x_recon.requires_grad)
+            u=x_recon[0,0,:,:,:]
+            v=x_recon[0,1,:,:,:]
+            u=unnorm_eval(u,-1.23722,2.12429)
+            v=unnorm_eval(v,-1.59233,1.03307)
+            u=u.unsqueeze(0)
+            v=v.unsqueeze(0)
+            # u=u.
+            print("computing pde")
+            # print("u",u.requires_grad)
+            # print("v",v.requires_grad)
+            # u.require_grad=True
+            # v.require_grad=True
+            #mask_region = (35, 70, 10, 76)
+            # mask_region = (39, 62, 22, 76)
+            mask_region = (0, 0, 0, 0)
+            pde_loss=get_ns_bounded_loss_perframe(u,v,mask_region=mask_region,mask=None)
+            # pde_loss.requires_grad=True
+            L_pde = torch.norm(pde_loss, 2)
+            # print("L_pde",L_pde)
+            # # L_pde.requires_grad=True
+            # print("pde_loss",pde_loss.requires_grad)
+            # print("L_pde",L_pde.requires_grad)
+            grad_x_cur_pde = torch.autograd.grad(outputs=L_pde, inputs=x_cur,retain_graph=True, allow_unused=True)[0]
+            # print("grad_x_cur_pde",grad_x_cur_pde)
+            # print("grad_x_cur_pde_shape",grad_x_cur_pde.shape)
+            # print(aaaaaa)
+            #return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
+            return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise-rate*grad_x_cur_pde
+        return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
+    
+    # @torch.inference_mode()
+    def p_sample_loop(self, shape, cond = None, guidance_scale = 1.,is_infer=False,rate=0.1):
         device = self.betas.device
 
         b = shape[0]
         img = torch.randn(shape, device=device)
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
-            img = self.p_sample(img, torch.full((b,), i, device=device, dtype=torch.long), cond = cond, guidance_scale = guidance_scale)
+            img = self.p_sample(img, torch.full((b,), i, device=device, dtype=torch.long), cond = cond, guidance_scale = guidance_scale,is_infer=is_infer,rate=rate)
 
         return unnormalize_img(img)
         # return img
 
-    @torch.inference_mode()
-    def sample(self, cond = None, batch_size = 16, guidance_scale = 1.):
+    # @torch.inference_mode()
+    def sample(self, cond = None, batch_size = 16, guidance_scale = 1.,is_infer=False,rate=0.1):
         batch_size = cond.shape[0] if exists(cond) else batch_size
         image_size = self.image_size
         channels = self.channels
         num_frames = self.num_frames
         sample_fn = self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
-        return sample_fn((batch_size, channels, num_frames, image_size, image_size), cond = cond, guidance_scale = guidance_scale)
+        return sample_fn((batch_size, channels, num_frames, image_size, image_size), cond = cond, guidance_scale = guidance_scale,is_infer=is_infer,rate=rate)
 
     @torch.inference_mode()
     def ddim_sample(self, shape, cond = None, guidance_scale = 1.):
@@ -1083,7 +1160,10 @@ class GaussianDiffusion(nn.Module):
         #torchvision.utils.save_image(x[0,0,0,:,:],"./x_unormalize.png")
         check_shape(x, 'b c f h w', c = self.channels, f = self.num_frames, h = img_size, w = img_size)
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
-        # print("t_shape",t.shape)
+        # print("x_shape",x.shape)
+        # torchvision.utils.save_image(x[0,2,0,:,:],"./x_input.png")
+        # torchvision.utils.save_image(x[0,2,5,:,:],"./x_input_5.png")
+        # print(aaaaaa)
         x = normalize_img(x)
         # masked_x=x*mask
         # masked_t=t*mask
@@ -1133,19 +1213,26 @@ def gif_to_tensor(path, channels = 1, transform = T.ToTensor()):
     # print((torch.stack(tensors, dim = 1)).shape)
     # print(aaaaaaa)
     return torch.stack(tensors, dim = 1)
-def load_npy(path,transform= T.ToTensor()):
-    out=[]
+def npy_to_tensor(path,transform= T.ToTensor(),index=0):
+    npy=np.load(path)
     # start_time=time.time()
-    for i in range(0,28,3):
-        path2=path+"_A"+str(i)+".npy"
-        pre=np.load(path2)
-        pre=Image.fromarray(pre)
-        # print("pre",pre.shape)
-        # pre=torch.tensor(pre)
-        premap=transform(pre)
-        out.append(premap)
-    # print("load time",time.time()-start_time)
-    return torch.stack(out, dim = 1)
+    # for i in range(0,28,3):
+    #     path2=path+"_A"+str(i)+".npy"
+    #     pre=np.load(path2)
+    #     pre=Image.fromarray(pre)
+    #     # print("pre",pre.shape)
+    #     # pre=torch.tensor(pre)
+    #     premap=transform(pre)
+    #     out.append(premap)
+    tensors =torch.from_numpy(npy).permute(2, 0, 1).unsqueeze(0)
+    # path1="/gpfs/share/home/2301112015/VideoMetamaterials/img/"
+    # os.makedirs(path1,exist_ok=True)
+    # path2="/gpfs/share/home/2301112015/VideoMetamaterials/img_half/"
+    # os.makedirs(path2,exist_ok=True)
+    # from torchvision.utils import save_image
+    # save_image(tensors[0,0,:,:],"/gpfs/share/home/2301112015/VideoMetamaterials/img/"+str(index).zfill(6)+".png")
+    # save_image(tensors[0,0,:,:].half().float(),"/gpfs/share/home/2301112015/VideoMetamaterials/img_half/"+str(index).zfill(6)+".png")
+    return tensors.half()
 def identity(t, *args, **kwargs):
     return t
 
@@ -1176,7 +1263,7 @@ class Dataset(data.Dataset):
         num_frames = 10,
         horizontal_flip = False,
         force_num_frames = True,
-        exts = ['.gif'],
+        exts = ['.npy'],
         per_frame_cond = False,
         reference_frame = 'eulerian',
     ):
@@ -1184,20 +1271,27 @@ class Dataset(data.Dataset):
         self.image_size = image_size
         self.selected_channels = selected_channels
         self.num_frames = num_frames
-
+        print("in data")
         # load topo data
-        pressure_folder = folder+ '/pressure/'
-        mask_folder=folder+ '/bounded_mask/'
+        pressure_folder = folder+ '/p_npy/'
+        u_folder=folder+ '/u_npy/'
+        v_folder=folder+ '/v_npy/'
         self.paths_pressure = [p for ext in exts for p in Path(f'{pressure_folder}').glob(f'**/*{ext}')]
-        self.paths_mask = [p for ext in exts for p in Path(f'{mask_folder}').glob(f'**/*{".png"}')]
+        self.paths_u = [p for ext in exts for p in Path(f'{u_folder}').glob(f'**/*{ext}')]
+        self.paths_v = [p for ext in exts for p in Path(f'{v_folder}').glob(f'**/*{ext}')]
+        # self.paths_ = [p for ext in exts for p in Path(f'{mask_folder}').glob(f'**/*{".png"}')]
         # print(self.paths_mask)
         # print(aaaaaa)
         # sort paths by number of name
         #print(self.paths_pressure[0].name.split('_')[0].replace("NACA","0000"))
         self.paths_pressure = sorted(self.paths_pressure, key=lambda x: int(x.name.split('.')[0].replace("NACA","0000")))
+        self.paths_u = sorted(self.paths_u, key=lambda x: int(x.name.split('.')[0].replace("NACA","0000")))
+        self.paths_v = sorted(self.paths_v, key=lambda x: int(x.name.split('.')[0].replace("NACA","0000")))
         # print(self.paths_pressure)
         # print(aaaaa)
         self.paths_pressure2=self.paths_pressure
+        self.paths_u2=self.paths_u
+        self.paths_v2=self.paths_v
         # for i in range (len(self.paths_pressure)):
         #     self.paths_pressure2[i]=pressure_folder+self.paths_pressure[i].name.split('_')[0]
             # print(self.paths_pressure2[i])
@@ -1295,7 +1389,8 @@ class Dataset(data.Dataset):
         self.detached_labels = self.labels.clone().detach().numpy()
 
         # compute normalization if not given
-        print(labels_scaling)
+        # print("labels_scaling",labels_scaling)
+        # print(aaaaaaa)
         if labels_scaling is None:
             # normalize labels to [-1, 1] based on global min/max (i.e., min/max of all samples in training set)
             self.labels_scaling = Normalization(self.labels, ['continuous']*self.labels.shape[1], 'global-min-max-2')
@@ -1329,16 +1424,27 @@ class Dataset(data.Dataset):
         return len(self.paths_pressure)
 
     def __getitem__(self, index):
+        # index=22
         if self.reference_frame == 'fluid':
             paths_pressure = self.paths_pressure2[index]
-            paths_mask=self.paths_mask[index]
+            paths_u = self.paths_u2[index]
+            paths_v = self.paths_v2[index]
+            # print("paths_pressure:",paths_pressure)
+            # print("labels",self.detached_labels[index])
+            # print(aaaaaa)
+            # paths_mask=self.paths_mask[index]
             # print(paths_pressure)
             # print(aaaaaa)
             # topologies = load_npy(paths_pressure)
             # print(topologies.shape)
             # print("loading npy")
-            tensor = torch.cat((gif_to_tensor(paths_pressure, transform = self.transform), 
+            tensor = torch.cat((
+                                npy_to_tensor(paths_u, transform = self.transform,index=0),
+                                npy_to_tensor(paths_v, transform = self.transform,index=0), 
+                                npy_to_tensor(paths_pressure, transform = self.transform,index=0), 
                                 ), dim=0)
+            # print("tensorshape",tensor.shape)
+            # print(aaaaaaa)
             # import cv2
             # print(paths_mask)
             # mask=torch.tensor(cv2.imread(paths_mask))/255.0
@@ -1607,6 +1713,36 @@ class Trainer(object):
         for i, j in indices:
             batched_gpu_cond.append(gpu_cond[i:j, :])
         return batched_gpu_cond
+
+    def cond_to_gpu_test(
+        self,
+        cond
+    ):
+        # obtain GPU indices
+        gpu_index = self.accelerator.process_index
+        # obtain share of preds_per_gpu from cond based on GPU index in continuous blocks
+        preds_per_gpu = len(cond) // self.accelerator.num_processes
+        # perform the slicing for each process
+        start_idx = gpu_index * preds_per_gpu
+        end_idx = (gpu_index + 1) * preds_per_gpu if gpu_index != self.accelerator.num_processes - 1 else cond.shape[0]
+        gpu_cond = cond[start_idx:end_idx, :]
+        # sample from model
+        local_num_samples = gpu_cond.shape[0]
+        self.test_batch_size=1
+        batches = num_to_groups(local_num_samples, self.test_batch_size)
+        # create list of indices for each batch
+        indices = []
+        start = 0
+        for batch_size in batches:
+            end = start + batch_size
+            indices.append((start, end))
+            start = end
+        # split test_cond into smaller tensors using the indices
+        batched_gpu_cond = []
+        for i, j in indices:
+            batched_gpu_cond.append(gpu_cond[i:j, :])
+        return batched_gpu_cond
+
 
     def save(
         self,
@@ -1888,7 +2024,7 @@ class Trainer(object):
 
         assert callable(self.log_fn)
 
-        mode = 'eval_target_w_' + str(guidance_scale)
+        mode = 'eval_target_w_guidance' + str(guidance_scale)
 
         test_cond_full_repeated = None
         if self.accelerator.is_main_process:
@@ -1953,7 +2089,7 @@ class Trainer(object):
             all_videos_list = []
             for cond in batched_test_cond:
                 samples_list=[]
-                for i in range(1):
+                for i in range(2):
                     samples = ema_model.sample(cond=cond, guidance_scale = guidance_scale)
                     # print("shape",samples.shape)
                     # print("max",samples.max())
@@ -1961,12 +2097,12 @@ class Trainer(object):
                     # samples=samples
                     # parint(aaaaaaa)
                     samples_list.append(samples.unsqueeze(0))
-                #     print(samples.shape)
+                    # print("samples",samples.shape)
                 #     print(aaaaa)
                 samples=torch.cat(samples_list,dim=0)
-                print("cat",samples.shape)
+                # print("cat",samples.shape)
                 samples=samples.mean(dim=0)
-                print("mean",samples.shape)
+                # print("mean",samples.shape)
                 # print(aaaaa)
                 #samples = ema_model.sample(cond=cond, guidance_scale = guidance_scale)
                 #all_videos_list.append(samples)
@@ -1977,12 +2113,27 @@ class Trainer(object):
             #self.accelerator.print(all_videos_list)
             all_videos_list = torch.cat(all_videos_list, dim = 0)
             # print(all_videos_list.shape)
-            all_videos_list_unnorm=unnorm_eval(all_videos_list,-2.22827,0.890682)
+            # all_videos_list_unnorm=unnorm_eval(all_videos_list,-2.22827,0.890682)
+            all_videos_list_unnorm=all_videos_list
             all_videos_list_unnorm=all_videos_list_unnorm.clone().cpu().detach().numpy()
             save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) + '/npy/'
             os.makedirs(save_dir,exist_ok=True)
-            np.save(save_dir+ 'prediction_channel_0' +  '.npy',all_videos_list_unnorm)
-            print(aaaaa)
+            np.save(save_dir+ 'prediction' +  '.npy',all_videos_list_unnorm)
+            mat_dict = {'data': all_videos_list_unnorm}
+            save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) + '/mat/'
+            os.makedirs(save_dir,exist_ok=True)
+            from scipy.io import savemat
+# 保存为.mat文件
+            savemat(save_dir+ 'prediction' +  '.mat',mat_dict)
+            save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) + '/img/'
+            os.makedirs(save_dir,exist_ok=True)
+            print(all_videos_list.shape)
+            # print(aaaaaaa)
+            for iteration in range(10):
+                for chanels in range(3):
+                    hide_image=all_videos_list[0,chanels,iteration,:,:]
+                    torchvision.utils.save_image(hide_image, os.path.join(save_dir, 'frame_{0:02d}'.format(iteration)+'channel_{0:02d}'.format(chanels) + ".png"))
+            # print(aaaaa)
             # gather all samples from all processes
             self.accelerator.wait_for_everyone()
 
@@ -1996,6 +2147,159 @@ class Trainer(object):
             # do further evaluation on main process
             if self.accelerator.is_main_process:
                 self.save_preds(gathered_all_videos_list, original_lengths, max_length, num_samples=num_samples, mode=mode)
+
+    def eval_test(
+        self,
+        target_labels_dir,
+        guidance_scale = 5.,
+        num_preds = 1,
+        rate=0.1
+    ):
+        self.accelerator.wait_for_everyone()
+
+        assert callable(self.log_fn)
+
+        mode = 'eval_test/'
+
+        test_cond_full_repeated = None
+        if self.accelerator.is_main_process:
+            # create folder for prediction
+            eval_idx = 0
+            while os.path.exists('./' + str(self.results_folder) + '/' + mode + '_' + str(eval_idx) + '/step_' + str(self.step)):
+                eval_idx += 1
+            mode = mode + '_' + str(eval_idx)
+            
+            os.makedirs('./' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) + '/gifs', exist_ok=True)
+
+            # convert target_labels_dir to tensor
+            try:
+                target_labels = np.genfromtxt(target_labels_dir, delimiter=',')
+            except:
+                self.accelerator.print('Could not load target labels.')
+                return
+            # print("target_labels",target_labels)
+            # print(self.per_frame_cond)
+            # print(aaaaaaa)
+            if len(target_labels.shape) == 1:
+                target_labels = target_labels[np.newaxis,:]
+
+            if self.per_frame_cond:
+                if self.num_frames != target_labels.shape[1]:
+                    strain = 0.2
+                    # interpolate stress data to match number of frames
+                    given_points = np.linspace(0., strain, num = target_labels.shape[1])
+                    eval_points = np.linspace(0., strain, num = self.num_frames)
+                    # overwrite first eval point since we take first frame at 1% strain
+                    eval_points[0] = 0.01*strain
+                    # interpolate stress data to match number of frames for full array
+                    target_labels_red = np.array([np.interp(eval_points, given_points, target_labels[i,:]) for i in range(target_labels.shape[0])])
+                    target_labels_red = torch.tensor(target_labels_red).float().to(self.device)
+                    test_cond_full = target_labels_red
+                else:
+                    test_cond_full = torch.tensor(target_labels).float().to(self.device)
+            else:
+                # NOTE Remove first label index since only contains zeros (we do not have to remove last value since we only pass 51 values)
+                test_cond_full = torch.tensor(target_labels[:,1:]).float().to(self.device)
+
+            # normalize target_labels
+            #print("test_cond_full",test_cond_full)
+            test_cond_full = self.ds.labels_scaling.normalize(test_cond_full)
+
+            num_samples = len(test_cond_full)
+
+            # repeat each value of test_cond self.red_preds_per_sample times
+            test_cond_full_repeated = test_cond_full.repeat_interleave(num_preds, dim=0)
+
+        self.accelerator.wait_for_everyone()
+
+        # braodcast test_cond_full_repeated across GPUs
+        test_cond_full_repeated = broadcast_object_list([test_cond_full_repeated])[0].to(self.device)
+
+        if test_cond_full_repeated is not None:
+            # distribute test_cond_full_repeated across available GPUs
+            # print(test_cond_full_repeated)
+            # print(aaaaaa)
+            batched_test_cond = self.cond_to_gpu_test(test_cond_full_repeated)
+            # print("batched_test_cond",batched_test_cond)
+            # print(aaaaa)
+            # generate samples using each split of test_cond
+            ema_model = self.accelerator.unwrap_model(self.ema_model)
+            cond_idx=0
+            for cond in batched_test_cond:
+                all_videos_list = []
+                cond_idx+=1
+                samples_list=[]
+                # print("cond",cond)
+                # continue
+                for i in range(2):
+                    # print("cond",cond)
+                    samples = ema_model.sample(cond=cond, guidance_scale = guidance_scale,is_infer=True,rate=rate)
+                    # print("shape",samples.shape)
+                    # print("max",samples[0,2,:,:,:].max())
+                    # print("min",samples[0,2,:,:,:].min())
+                    # print("mean",samples[0,2,:,:,:].min())
+                    # torchvision.utils.save_image(samples[0,2,0,:,:], "./samples.png")
+                    # samples=samples
+                    # parint(aaaaaaa)
+                    samples_list.append(samples.unsqueeze(0))
+                    # print("samples",samples.shape)
+                #     print(aaaaa)
+                samples=torch.cat(samples_list,dim=0)
+                # print("cat",samples.shape)
+                samples=samples.mean(dim=0)
+                # print("mean",samples.shape)
+                # print(aaaaa)
+                #samples = ema_model.sample(cond=cond, guidance_scale = guidance_scale)
+                #all_videos_list.append(samples)
+                all_videos_list.append(samples)
+
+                self.accelerator.wait_for_everyone()
+                # concatenate the generated samples into a single tensor
+                #self.accelerator.print(all_videos_list)
+                all_videos_list = torch.cat(all_videos_list, dim = 0)
+                # print(all_videos_list.shape)
+                # all_videos_list_unnorm=unnorm_eval(all_videos_list,-2.22827,0.890682)
+                all_videos_list_unnorm=all_videos_list
+                all_videos_list_unnorm=all_videos_list_unnorm.clone().cpu().detach().numpy()
+                save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step)+"/num_"+str(cond_idx).zfill(5) + '/npy/'
+                # print("max:",all_videos_list_unnorm.max())
+                # print("min:",all_videos_list_unnorm.min())
+                # print("mean:",all_videos_list_unnorm.mean())
+                os.makedirs(save_dir,exist_ok=True)
+                np.save(save_dir+ 'prediction' +  '.npy',all_videos_list_unnorm)
+                mat_dict = {'data': all_videos_list_unnorm}
+                save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) +"/num_"+str(cond_idx).zfill(5) + '/mat/'
+                os.makedirs(save_dir,exist_ok=True)
+                from scipy.io import savemat
+    # 保存为.mat文件
+                for iteration in range(10):
+                    for chanels in range(3):
+                        mat_dict={'data': all_videos_list_unnorm[0,chanels,iteration,:,:]}
+                        savemat(os.path.join(save_dir, 'frame_{0:02d}'.format(iteration)+'channel_{0:02d}'.format(chanels) + ".mat"),mat_dict)
+                #savemat(save_dir+ 'prediction' +  '.mat',mat_dict)
+                save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) +"/num_"+str(cond_idx).zfill(5) + '/img/'
+                os.makedirs(save_dir,exist_ok=True)
+                print(all_videos_list.shape)
+                # print(aaaaaaa)
+                for iteration in range(10):
+                    for chanels in range(3):
+                        hide_image=all_videos_list[0,chanels,iteration,:,:]
+                        torchvision.utils.save_image(hide_image, os.path.join(save_dir, 'frame_{0:02d}'.format(iteration)+'channel_{0:02d}'.format(chanels) + ".png"))
+                # print(aaaaa)
+                # gather all samples from all processes
+                self.accelerator.wait_for_everyone()
+
+                # pad across processes since gather needs tensors of equal length
+                padded_all_videos_list = self.accelerator.pad_across_processes(all_videos_list, dim=0)
+                max_length = padded_all_videos_list.shape[0]
+                gathered_all_videos_list = self.accelerator.gather(padded_all_videos_list)
+                # gather the lengths of the original all_videos_list tensors
+                original_lengths = self.accelerator.gather(torch.tensor(all_videos_list.shape[0]).to(all_videos_list.device))
+
+                # do further evaluation on main process
+                if self.accelerator.is_main_process:
+                    self.save_preds_test(gathered_all_videos_list, original_lengths, max_length, num_samples=num_samples, mode=mode,cond_idx=cond_idx)
+
 
 
     def remove_padding(
@@ -2035,6 +2339,29 @@ class Trainer(object):
         one_gif = rearrange(padded_pred_videos, '(i j) c f h w -> c f (i h) (j w)', i = num_samples)
 
         save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) + '/gifs/'
+
+        for j, pred_channel in enumerate(self.selected_channels):
+            video_path = save_dir + 'prediction_channel_' + str(pred_channel) + '.gif'
+            video_tensor_to_gif(one_gif[None, j], video_path)
+            
+        self.accelerator.print(f'generated samples saved to {save_dir}')
+    def save_preds_test(
+        self,
+        gathered_all_videos_list,
+        original_lengths,  
+        max_length,
+        num_samples,
+        mode = 'training',
+        cond_idx=0
+    ):
+        gathered_all_videos = self.remove_padding(gathered_all_videos_list, original_lengths, max_length)
+
+        # save predictions to gifs
+        padded_pred_videos = F.pad(gathered_all_videos, (2, 2, 2, 2))
+        one_gif = rearrange(padded_pred_videos, '(i j) c f h w -> c f (i h) (j w)', i = 1)
+
+        save_dir = './' + str(self.results_folder) + '/' + mode + '/step_' + str(self.step) +"/num_"+str(cond_idx).zfill(5) + '/gifs/'
+        os.makedirs(save_dir,exist_ok=True)
 
         for j, pred_channel in enumerate(self.selected_channels):
             video_path = save_dir + 'prediction_channel_' + str(pred_channel) + '.gif'

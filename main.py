@@ -3,11 +3,11 @@ import datetime
 from pathlib import Path
 from torch import distributed as dist
 from accelerate import Accelerator, DistributedDataParallelKwargs, InitProcessGroupKwargs
-from denoising_diffusion import Unet3D, GaussianDiffusion, Trainer
+from denoising_diffusion_our_npy import Unet3D, GaussianDiffusion, Trainer
 from src.utils import *
 import time
 from argparse import ArgumentParser
-def main(name,mode):
+def main(name,mode,rate,host):
 
     ### User input ###
     # define run name, if run name already exists and is not 'pretrained', load_model_step must be provided
@@ -16,7 +16,8 @@ def main(name,mode):
     if mode=="eval":
         load_model_step = 100000  # pretrained model was trained for 200k steps
     else:
-        load_model_step = None 
+        load_model_step = None  # train new model (or change this in case you want to load your own pretrained model)
+    
     # number of predictions to generate for each conditioning
     num_preds = 1
 
@@ -32,8 +33,12 @@ def main(name,mode):
     import torch.distributed as dist
 
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '4648'
+    os.environ['MASTER_PORT'] = host
+    # print(os.environ['WORLD_SIZE'])
+    # print(aaaaa)
     dist.init_process_group(backend='gloo',init_method='env://',rank=0,world_size=int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1)
+    # dist.init_process_group(backend='nccl',init_method=None,rank=-1,world_size=-1)
+    # print(aaaaa)
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     
     ip_kwargs = InitProcessGroupKwargs(timeout=datetime.timedelta(seconds=60*10))  # required to prevent timeout error when nonequal distribution of samplings to GPUs
@@ -52,14 +57,19 @@ def main(name,mode):
             accelerator.print('Directory already exists, please change run_name to train new model or provide load_model_step')
             return
         # extract model parameters from given yaml
-        print("loading:",run_dir)
         config = yaml.safe_load(Path(run_dir + 'model/model.yaml').read_text())
     else:
         # extract model parameters from created yaml
-        config = yaml.safe_load(Path('model.yaml').read_text())
+        config = yaml.safe_load(Path('model_our.yaml').read_text())
         print(f"Process {accelerator.state.local_process_index}: Waiting for everyone to reach this point.")
+        # print(aaaaa)
+        # if accelerator.is_main_process:
+        #     time.sleep(2)
+        # else:
+        #     print("I'm waiting for the main process to finish its sleep...")
         accelerator.wait_for_everyone()
         print(f"Process {accelerator.state.local_process_index}: reach this point.")
+        # print(aaaaa)
         # save model parameters in run_dir    
         if accelerator.is_main_process:
             # create folder for all saved files
@@ -87,7 +97,8 @@ def main(name,mode):
         per_frame_cond = config['per_frame_cond'],
         padding_mode = config['padding_mode'],
     )
-    # print(len(config['selected_channels']))
+    print(len(config['selected_channels']))
+    # print(aaaaaaaaa)
     diffusion = GaussianDiffusion(
         model,
         image_size = 96,
@@ -99,7 +110,7 @@ def main(name,mode):
         sampling_timesteps = config['sampling_timesteps'],
     )
     config['reference_frame']
-    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/'
+    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/wingscut/'
     data_dir_validation = cur_dir + 'data/' + config['reference_frame'] + '/validation/'
 
     trainer = Trainer(
@@ -120,13 +131,11 @@ def main(name,mode):
         reference_frame = config['reference_frame'],
         run_name = run_name,
         accelerator = accelerator,
-        wandb_username = wandb_username,
-        mode=mode
+        wandb_username = wandb_username
     )
 
     trainer.train(load_model_step=load_model_step, num_samples=3, num_preds=num_preds)
-
-    trainer.eval_test(target_labels_dir, guidance_scale=guidance_scale, num_preds=num_preds)
+    trainer.eval_test(target_labels_dir, guidance_scale=guidance_scale, num_preds=num_preds,rate=rate)
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Testing script parameters")
@@ -134,5 +143,7 @@ if __name__ == '__main__':
     # pipeline = PipelineParams(parser)
     parser.add_argument("--name", default="pretrained", type=str)
     parser.add_argument("--mode", default="train", type=str)
+    parser.add_argument("--rate", default=0.1, type=float)
+    parser.add_argument("--host", default="1234", type=str)
     args = parser.parse_args()
-    main(args.name,args.mode)
+    main(args.name,args.mode,args.rate,args.host)
