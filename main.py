@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 from torch import distributed as dist
 from accelerate import Accelerator, DistributedDataParallelKwargs, InitProcessGroupKwargs
-from denoising_diffusion_our_npy import Unet3D, GaussianDiffusion, Trainer
+from denoising_diffusion import Unet3D, GaussianDiffusion, Trainer
 from src.utils import *
 import time
 from argparse import ArgumentParser
