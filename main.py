@@ -60,7 +60,7 @@ def main(name,mode,rate,host):
         config = yaml.safe_load(Path(run_dir + 'model/model.yaml').read_text())
     else:
         # extract model parameters from created yaml
-        config = yaml.safe_load(Path('model_our.yaml').read_text())
+        config = yaml.safe_load(Path('model.yaml').read_text())
         print(f"Process {accelerator.state.local_process_index}: Waiting for everyone to reach this point.")
         # print(aaaaa)
         # if accelerator.is_main_process:
@@ -110,7 +110,7 @@ def main(name,mode,rate,host):
         sampling_timesteps = config['sampling_timesteps'],
     )
     config['reference_frame']
-    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/wingscut/'
+    data_dir = cur_dir + 'data/' + config['reference_frame'] + '/training/'
     data_dir_validation = cur_dir + 'data/' + config['reference_frame'] + '/validation/'
 
     trainer = Trainer(
