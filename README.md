@@ -3,7 +3,7 @@
   Accelerating High-fidelity Airfoil Design via Physics-informed Video Diffusion Model
 </h2>
 <h5 align="center"> 
-Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, Lei Ma✉
+Yifeng Ai*, Yijia Guo*, Hongfu Zhang✉, Lei Zhou✉, Tiejun Huang, Peng Guo, C.W.Lim✉, Lei Ma✉
  </h5>
 <h5 align="center"> 
 * Equal contributions,
@@ -24,7 +24,7 @@ Yifeng Ai*, Yijia Guo*, Peng Guo, Hongfeng Zhang✉, C.W.Lim✉, Tiejun Huang, L
 
 
 ## 📕 Abstract
-> We propose a synergistic optimization framework USP-Gaussian, that unifies spike-based image reconstruction, pose correction, and Gaussian splatting into an end-to-end framework. Leveraging the multi-view consistency afforded by 3DGS and the motion capture capability of the spike camera, our framework enables a joint iterative optimization that seamlessly integrates information between the spike-to-image network and 3DGS. Experiments on synthetic datasets with accurate poses demonstrate that our method surpasses previous approaches by effectively eliminating cascading errors. Moreover, we integrate pose optimization to achieve robust 3D reconstruction in real-world scenarios with inaccurate initial poses, outperforming alternative methods by effectively reducing noise and preserving fine texture details.
+>Airfoil design remains a challenging multi-objective optimization problem requiring precise geometric control for optimal aerodynamic performance. Data-driven inverse design methods mitigate this complexity but often yield non-physical results when physical constraints are not explicitly incorporated. Here, we construct a high-fidelity NACA–Nek1000 dataset with 53,400 samples from direct numerical simulations to train a dual physics-informed video diffusion model (PVDM). The governing equations of incompressible flow are intrinsically coupled with the diffusion learning process, enabling the reconstruction of full-field velocity and pressure distributions from lift-to-drag response sequences. The PVDM achieves accurate low–Reynolds number airfoil reconstruction and real-time flow generation within 30 seconds per case, approximately 600 times faster than conventional simulations, while maintaining over 90% fidelity. The reconstructed airfoils are further modeled as propeller geometries and experimentally validated which well fit the simulated lift-to-drag responses, establishing a rapid and generalizable framework for high-fidelity, physics-informed inverse aerodynamic design.
 
 
 <!-- ## 👀 Visual Comparisons
