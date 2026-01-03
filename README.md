@@ -3,7 +3,7 @@
   Accelerating High-fidelity Airfoil Design via Physics-informed Video Diffusion Model
 </h2>
 <h5 align="center"> 
-Yifeng Ai*, Yijia Guo*, Hongfu Zhang✉, Lei Zhou✉, Tiejun Huang, Peng Guo, C.W.Lim✉, Lei Ma✉
+Yifeng Ai*, Yijia Guo*, Hongfu Zhang✉, Lei Zhou✉, Tiejun Huang, Weiqiu Chen, Xuhui He, Peng Guo, C.W.Lim✉, Lei Ma✉
  </h5>
 <h5 align="center"> 
 * Equal contributions,
