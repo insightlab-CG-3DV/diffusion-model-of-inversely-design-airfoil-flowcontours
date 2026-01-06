@@ -105,7 +105,7 @@ accelerate launch main.py --name <you_name> --mode train
 ### 4. Rendering
 For rendering 3D scene from the input camera trajectory, run:
 ```
-accelerate launch main_our_npy.py --name pretrained --mode eval
+accelerate launch main.py --name pretrained --mode eval
 ```
 
 ## 🙇‍ Acknowledgment
