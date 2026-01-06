@@ -98,7 +98,7 @@ Pretrained model should be formulated as:
 
 ### 3. Training
 ```
-accelerate launch main_our_npy.py --name <you_name> --mode train
+accelerate launch main.py --name <you_name> --mode train
 ```
 
 
