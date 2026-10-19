@@ -18,7 +18,7 @@ Yifeng Ai*, Yijia Guo*, Hongfu Zhang✉, Lei Zhou✉, Tiejun Huang, Weiqiu Chen,
 </h5> -->
 ## 👀 Overview
 <p align="center">
-    <img src="asset/Fig2.png" width="800"/>
+    <img src="Fig2.png" width="800"/>
 </p>
 
 
